@@ -92,3 +92,8 @@ enum ActivityFilterType {
 }
 
 enum ComeFrom { none, edit, review }
+
+enum CheckStatus {
+  checkIn,
+  checkOut,
+}

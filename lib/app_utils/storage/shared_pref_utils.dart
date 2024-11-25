@@ -6,12 +6,12 @@ import 'package:calculate_time_app/app_utils/utils/app_themes.dart';
 import 'package:calculate_time_app/app_utils/utils/enum.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 
-
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class SharedPrefUtils {
-  static Future<SharedPreferences> get _instance async => _prefsInstance ??= await SharedPreferences.getInstance();
+  static Future<SharedPreferences> get _instance async =>
+      _prefsInstance ??= await SharedPreferences.getInstance();
   static SharedPreferences? _prefsInstance;
 
   static Future<SharedPreferences> init() async {
@@ -24,12 +24,15 @@ class SharedPrefUtils {
     ModelThemesData? model = stringModel != null
         ? ModelThemesData.fromMap(jsonDecode(stringModel))
         : ModelThemesData(
-            fontSizeType: FontSizeType.normal.index, fontStyleType: FontStyleType.HelveticaNowText.index, themeType: AppThemesType.light.index);
+            fontSizeType: FontSizeType.normal.index,
+            fontStyleType: FontStyleType.HelveticaNowText.index,
+            themeType: AppThemesType.light.index);
     return model;
   }
 
   static bool isLightThemes() {
-    var tType = SharedPrefUtils.getThemesData().themeType ?? AppTheme.lightTheme.index;
+    var tType =
+        SharedPrefUtils.getThemesData().themeType ?? AppTheme.lightTheme.index;
     return tType == AppThemesType.light.index;
   }
 
@@ -311,5 +314,21 @@ class SharedPrefUtils {
 
   static bool getContactSync() {
     return _prefsInstance?.getBool("SetContactSync") ?? false;
+  }
+
+ static DateTime? getTime() {
+    // Get the string value from SharedPreferences or return null if not found
+    final timeString = _prefsInstance?.getString("selectedTime");
+
+    // If timeString is not null or empty, parse it into DateTime
+    return timeString != null && timeString.isNotEmpty
+        ? DateTime.parse(timeString)
+        : null;
+  }
+
+
+  static Future<bool> setTime(DateTime value) async {
+    var prefs = await _instance;
+    return prefs.setString("selectedTime", value.toIso8601String());
   }
 }
