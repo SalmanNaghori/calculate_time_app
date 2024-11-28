@@ -18,7 +18,7 @@ class CommonAppbar extends StatelessWidget implements PreferredSizeWidget {
       centerTitle: centerTitle ?? true,
       titleSpacing: 0,
       leading: Visibility(
-        visible: !hideBack,
+        visible: hideBack,
         child: IconButton(
           onPressed: () {
             if (onTap != null) {

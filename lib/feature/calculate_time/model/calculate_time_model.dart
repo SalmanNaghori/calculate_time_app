@@ -10,4 +10,9 @@ class CalculateTimeModel {
     this.status,
     this.id,
   });
+
+  @override
+  String toString() {
+    return 'CalculateTimeModel(id: $id, date: $date, status: $status)';
+  }
 }

@@ -1,13 +1,14 @@
 import 'package:calculate_time_app/app_utils/basic_import.dart';
+import 'package:calculate_time_app/app_utils/common_widgets/common_appbar.dart';
 import 'package:calculate_time_app/app_utils/constants/date_formats.dart';
 import 'package:calculate_time_app/app_utils/storage/shared_pref_utils.dart';
 import 'package:calculate_time_app/app_utils/utils/enum.dart';
+import 'package:calculate_time_app/app_utils/utils/logger_util.dart';
 import 'package:calculate_time_app/feature/calculate_time/model/calculate_time_model.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:stop_watch_timer/stop_watch_timer.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class CalculateTimeScreen extends StatefulWidget {
   const CalculateTimeScreen({super.key});
@@ -17,11 +18,16 @@ class CalculateTimeScreen extends StatefulWidget {
 }
 
 class CalculateTimeScreenState extends State<CalculateTimeScreen> {
-  final _isHours = true;
   final StopWatchTimer _stopWatchTimer = StopWatchTimer(
-    onChange: (value) => debugPrint('onChange $value'),
-    onChangeRawSecond: (value) => debugPrint('onChangeRawSecond $value'),
-    onChangeRawMinute: (value) => debugPrint('onChangeRawMinute $value'),
+    onChange: (value) {
+      // debugPrint('onChange $value')
+    },
+    onChangeRawSecond: (value) {
+      debugPrint('onChangeRawSecond $value');
+    },
+    onChangeRawMinute: (value) {
+      debugPrint('onChangeRawMinute $value');
+    },
     onStopped: () {
       debugPrint('onStop');
     },
@@ -30,10 +36,13 @@ class CalculateTimeScreenState extends State<CalculateTimeScreen> {
     },
   );
 
+  // Variable
   int _storedDuration = 0; // Store duration in milliseconds
-  final ValueNotifier<bool> isScreenRefresh = ValueNotifier(false);
   final List<CalculateTimeModel> listOfTime = [];
   CheckStatus? checkTimeStatus;
+
+  // ValueNotifier
+  final ValueNotifier<bool> isScreenRefresh = ValueNotifier(false);
 
   @override
   void initState() {
@@ -50,23 +59,32 @@ class CalculateTimeScreenState extends State<CalculateTimeScreen> {
     await _stopWatchTimer.dispose();
   }
 
-
-
-
-
   Future<void> _loadStoredTime() async {
     final storedTime = SharedPrefUtils.getTime();
     if (storedTime != null) {
       final now = DateTime.now();
-      final difference = now.difference(storedTime);
+      final difference = now.difference(storedTime).inMilliseconds;
 
       // Convert the difference to milliseconds for the stopwatch
-      _storedDuration = difference.inMilliseconds;
+      _storedDuration = difference;
 
+      // Convert milliseconds to a Duration
+      final duration = Duration(milliseconds: _storedDuration);
 
+      // Format the duration as hours:minutes:seconds
+      final formattedTime = [
+        duration.inHours,
+        duration.inMinutes.remainder(60),
+        duration.inSeconds.remainder(60),
+      ].map((seg) => seg.toString().padLeft(2, '0')).join(':');
+
+      // Print the formatted time
+      debugPrint("Stored Duration: $formattedTime");
+      logger.f("Stored Duration: $formattedTime");
       // Start the stopwatch from the stored duration
       _stopWatchTimer.setPresetTime(mSec: _storedDuration);
       _stopWatchTimer.onStartTimer();
+      checkTimeStatus = CheckStatus.checkOut;
     }
   }
 
@@ -76,8 +94,11 @@ class CalculateTimeScreenState extends State<CalculateTimeScreen> {
         valueListenable: isScreenRefresh,
         builder: (_, value, __) {
           return Scaffold(
-            appBar: AppBar(
-              title: const Text('Count Up Timer'),
+            appBar: CommonAppbar(
+              title: "Data".textView(),
+              actions: [
+                GestureDetector(onTap: () {}, child: const Icon(Icons.history))
+              ],
             ),
             bottomNavigationBar: startStopButton(),
             body: Padding(
@@ -94,9 +115,9 @@ class CalculateTimeScreenState extends State<CalculateTimeScreen> {
                     initialData: _stopWatchTimer.rawTime.value,
                     builder: (context, snap) {
                       final value = snap.data!;
-                      final adjustedValue = value + _storedDuration;
+                      final adjustedValue = value;
                       final displayTime =
-                      StopWatchTimer.getDisplayTime(adjustedValue);
+                          StopWatchTimer.getDisplayTime(adjustedValue);
 
                       return Column(
                         children: <Widget>[
@@ -147,10 +168,11 @@ class CalculateTimeScreenState extends State<CalculateTimeScreen> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     changeDateFormat(
-                                        listOfTime[index].date,
-                                        AppDateFormats.dateFormatToday,
-                                        AppDateFormats
-                                            .dateFormatDDMMYYYYHHMM)
+                                            listOfTime[index].date,
+                                            AppDateFormats
+                                                .dateFormatYYYYMMSSHHMMSS,
+                                            AppDateFormats
+                                                .dateFormatDDMMYYYYHHMM)
                                         .textView(
                                       style: context.fontStyleSemiBold18,
                                     ),
@@ -168,7 +190,7 @@ class CalculateTimeScreenState extends State<CalculateTimeScreen> {
                                     : CupertinoIcons.arrow_up_right,
                                 size: Dimensions.w25,
                                 color: listOfTime[index].status ==
-                                    CheckStatus.checkIn
+                                        CheckStatus.checkIn
                                     ? AppColor.blueColor
                                     : AppColor.primaryColor,
                               )
@@ -187,99 +209,67 @@ class CalculateTimeScreenState extends State<CalculateTimeScreen> {
 
   // bottom
   Widget startStopButton() {
-    return Row(
-      children: <Widget>[
-        Flexible(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: GestureDetector(
-              onTap: checkTimeStatus != CheckStatus.checkOut
-                  ? () async {
-                _stopWatchTimer.onStartTimer();
-                final now = DateTime.now();
-                SharedPrefUtils.setTime(now);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: GestureDetector(
+        onTap: () async {
+          if (checkTimeStatus == CheckStatus.checkIn ||
+              checkTimeStatus == null) {
+            // Start action
+            _stopWatchTimer.onStartTimer();
+            final now = DateTime.now();
+            SharedPrefUtils.setTime(now);
 
-                CalculateTimeModel calculateTimeModel =
-                CalculateTimeModel()
-                  ..date = now.toString()
-                  ..id =
-                  now.millisecondsSinceEpoch.toString()
-                  ..status = CheckStatus.checkIn;
-                listOfTime.add(calculateTimeModel);
-                checkTimeStatus = CheckStatus.checkOut;
-                isScreenRefresh.value = !isScreenRefresh.value;
-              }
-                  : null,
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 300),
-                height: Dimensions.screenHeight() * 0.07,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: checkTimeStatus == CheckStatus.checkIn
-                      ? AppColor.blueColor
-                      : AppColor.greyColor,
-                  borderRadius: BorderRadius.circular(
-                      checkTimeStatus == CheckStatus.checkIn
-                          ? Dimensions.r15
-                          : 8),
-                ),
-                child: const Text(
-                  'Start',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
+            CalculateTimeModel calculateTimeModel = CalculateTimeModel()
+              ..date = now.toString()
+              ..id = now.millisecondsSinceEpoch.toString()
+              ..status = CheckStatus.checkIn;
+            listOfTime.add(calculateTimeModel);
+
+            checkTimeStatus = CheckStatus.checkOut;
+          } else if (checkTimeStatus == CheckStatus.checkOut) {
+            // Stop action
+            _stopWatchTimer.onStopTimer();
+            final now = DateTime.now();
+            CalculateTimeModel calculateTimeModel = CalculateTimeModel()
+              ..date = now.toString()
+              ..id = now.millisecondsSinceEpoch.toString()
+              ..status = CheckStatus.checkOut;
+
+            SharedPrefUtils.setTime(now);
+            listOfTime.add(calculateTimeModel);
+
+            checkTimeStatus = CheckStatus.checkIn;
+          }
+          isScreenRefresh.value = !isScreenRefresh.value; // Refresh the screen
+        },
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 500),
+          transitionBuilder: (child, animation) {
+            return FadeTransition(opacity: animation, child: child);
+          },
+          child: Container(
+            key: ValueKey(checkTimeStatus),
+            height: Dimensions.screenHeight() * 0.07,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: (checkTimeStatus == CheckStatus.checkIn ||
+                      checkTimeStatus == null)
+                  ? AppColor.blueColor
+                  : AppColor.cancelRedColor,
+              borderRadius: BorderRadius.circular(Dimensions.r8),
+            ),
+            child: Text(
+              (checkTimeStatus == CheckStatus.checkIn ||
+                      checkTimeStatus == null)
+                  ? 'Start'
+                  : 'Stop',
+              style:
+                  context.fontStyleBold18?.copyWith(color: AppColor.whiteColor),
             ),
           ),
         ),
-        Flexible(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: GestureDetector(
-              onTap: checkTimeStatus != CheckStatus.checkIn
-                  ? () {
-                _stopWatchTimer.onStopTimer();
-                CalculateTimeModel calculateTimeModel =
-                CalculateTimeModel()
-                  ..date = DateTime.now().toString()
-                  ..id =
-                  DateTime.now().millisecondsSinceEpoch.toString()
-                  ..status = CheckStatus.checkOut;
-
-                SharedPrefUtils.setTime(DateTime.now());
-                listOfTime.add(calculateTimeModel);
-                checkTimeStatus = CheckStatus.checkIn;
-
-                isScreenRefresh.value = !isScreenRefresh.value;
-              }
-                  : null,
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 300),
-                height: Dimensions.screenHeight() * 0.07,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: checkTimeStatus == CheckStatus.checkOut
-                      ? AppColor.blueColor
-                      : AppColor.greyColor,
-                  borderRadius: BorderRadius.circular(
-                      checkTimeStatus == CheckStatus.checkOut
-                          ? Dimensions.r15
-                          : 8),
-                ),
-                child: const Text(
-                  'Stop',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
+      ),
     )
         .paddingSymmetric(horizontal: Dimensions.w15)
         .paddingOnly(bottom: Dimensions.h10);
